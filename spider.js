@@ -90,10 +90,26 @@ function startRequest(x) {
 			var $ = cheerio.load(html);   // 采用cheerio模块解析html
 
 			var detailLink = $('.zwmc div a');
-			for ( var i = 0; i < detailLink.length; i++) {
-				var detailURL = detailLink[i].attribs.href;
-				detailRequest(detailURL);
+
+			// for ( var i = 0; i < detailLink.length; i++) {
+			// 	var detailURL = detailLink[i].attribs.href;
+			// 	detailRequest(detailURL);
+			// }
+
+			var i = 0;
+			var detailURL = '';
+			var len = detailLink.length;
+			// 当一个请求结束后再执行下一个请求
+			var detailReq = function(i) {
+				detailURL = detailLink[i].attribs.href;
+				detailRequest(detailURL, function(n) {
+					if (n && i<len-1) {
+						i+=1;
+						detailReq(i)
+					}
+				});
 			}
+			detailReq(i);
 
 			nextLink = $('.pagesDown-pos a').attr('href');
 		});
@@ -103,7 +119,7 @@ function startRequest(x) {
 	});
 }
 
-function detailRequest( detailURL ) {
+function detailRequest( detailURL, callback ) {
 	http.get( detailURL, function(res) {
 		var html = '';
 		res.setEncoding('utf-8');
@@ -126,14 +142,16 @@ function detailRequest( detailURL ) {
 			// 输出数据
 			n+=1;
 			if ( n < MAX ) {
-				process.stdout.write("当前进度: "+(n/MAX*100).toFixed(0)+"%"+"\r");
+				process.stdout.write("当前进度: "+(n/MAX*100).toFixed(0)+"%"+"   爬取简章数："+n+"\r");
+				callback(true);
 			}
 			if ( n == pageNum * page && n < MAX ) {
 				page++;
+				callback(false);
 				startRequest(nextLink);
 			}
 			if ( n == MAX ) {
-				process.stdout.write("当前进度: "+(n/MAX*100).toFixed(0)+"%"+"\r\n");
+				process.stdout.write("当前进度: "+(n/MAX*100).toFixed(0)+"%"+"   爬取简章数："+n+"\r\n");
 				skill.sort(function( x, y ) {
 					return y.count - x.count;
 				});
@@ -165,6 +183,7 @@ function detailRequest( detailURL ) {
 					}
 					console.log( name, " : ", count, "  占比: ", percent );
 				}
+				callback(false);
 			}
 		});
 	}).on('error', function (err) {
